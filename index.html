@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Кубик Рубика — интерактивная логическая игра и число Бога</title>
+  <meta name="description" content="Кубик Рубика в браузере: узоры, формулы, три способа сборки и исследование прямого перебора — число Бога." />
+  <meta name="author" content="Букреев (MIvOlgin), Санкт-Петербург" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <a class="skip" href="#play">К содержанию</a>
+
+  <div class="layout">
+    <!-- ЛЕВАЯ ПАНЕЛЬ: куб -->
+    <aside class="cube-panel" aria-label="Кубик">
+      <div class="cube-stage" id="cube-stage"></div>
+
+      <div class="ribbon" id="ribbon" aria-label="Лента ходов" role="listbox" tabindex="0"></div>
+
+      <div class="counter">
+        <span class="counter-num" id="move-count">0</span>
+        <span class="counter-label" id="move-label">ходов</span>
+        <span class="counter-state" id="solved-flag">собран</span>
+      </div>
+
+      <div class="controls">
+        <div class="row">
+          <button id="btn-reset" title="Пробел">Собрать</button>
+          <button id="btn-scramble" title="Enter">Разобрать</button>
+          <button id="btn-undo" title="Backspace">Отменить</button>
+          <button id="btn-play" title="Проиграть от текущего хода">▶ Играть</button>
+        </div>
+        <div class="row">
+          <label class="speed">Скорость
+            <input type="range" id="speed" min="0" max="1500" step="10" value="1240" />
+            <span id="speed-val">260 мс</span>
+          </label>
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="chk-trail" checked /> Шлейф</label>
+          <label><input type="checkbox" id="chk-sound" /> Музыка сфер</label>
+          <label><input type="checkbox" id="chk-qtm-notation" /> Русская запись</label>
+        </div>
+        <form class="row" id="form-moves">
+          <input type="text" id="inp-moves" placeholder="R U R' U'   или   пвПВ   или   L2 R3 F1" spellcheck="false" />
+          <button type="submit">Выполнить</button>
+        </form>
+        <p class="hint" id="moves-error" role="alert"></p>
+        <div class="row wrap quiet-row">
+          <button id="btn-save" class="quiet">Сохранить</button>
+          <button id="btn-restore" class="quiet">Восстановить</button>
+          <button id="btn-custom" class="quiet">Ввести свой кубик</button>
+          <button id="btn-copy" class="quiet">Копировать ходы</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ПРАВАЯ КОЛОНКА: лонгрид -->
+    <main class="content">
+      <header class="hero">
+        <p class="eyebrow">Санкт-Петербург · MIvOlgin · 1988 —</p>
+        <h1>Кубик Рубика</h1>
+        <p class="lede">Интерактивная логическая игра в оригинальном исполнении — и попытка на ней же измерить, сколько ходов на самом деле нужно, чтобы собрать любой кубик.</p>
+        <p class="mantra">Крест наверх. Крест на место. Крест в цвет.<br>Углы наверх. Углы на место. Углы в цвет.<br>Середина. Целиком.</p>
+      </header>
+
+      <section id="play" class="section">
+        <h2>Играть</h2>
+        <p>Крутите слои мышью или пальцем прямо на кубике, вращайте сам кубик за пустое место. Клавиши — как на старом сайте: строчная буква — грань вперёд, с&nbsp;Shift — назад.</p>
+        <div class="keys" aria-label="Клавиши">
+          <div><kbd>п</kbd> правая</div><div><kbd>л</kbd> левая</div><div><kbd>в</kbd> верх</div>
+          <div><kbd>н</kbd> низ</div><div><kbd>ф</kbd> фасад</div><div><kbd>т</kbd> тыл</div>
+          <div><kbd>с</kbd> середина</div><div><kbd>о</kbd> вертикаль</div>
+          <div><kbd>4</kbd><kbd>6</kbd> кубик влево/вправо</div><div><kbd>8</kbd><kbd>2</kbd> кубик вверх/вниз</div>
+          <div><kbd>Пробел</kbd> собрать</div><div><kbd>Enter</kbd> разобрать</div>
+        </div>
+
+        <h3>Узоры</h3>
+        <p>Двадцать семь узоров с оригинального сайта. Строки ходов оставлены как у автора — в трёх разных нотациях; парсер понимает все.</p>
+        <div id="patterns" class="patterns"></div>
+
+        <h3>Формулы третьего слоя</h3>
+        <div id="algorithms" class="patterns"></div>
+      </section>
+
+      <section id="solvers" class="section">
+        <h2>Три способа собрать</h2>
+        <p>Старый сайт умел собирать случайной сборкой, прямым перебором и «броском в двадцать ходов». Первые два — здесь, живьём. Третий способ новый: двухфазный алгоритм Кочембы, который находит решение не длиннее 22 ходов за доли секунды.</p>
+
+        <div class="lanes">
+          <div class="lane">
+            <h3>Алгоритм Кочембы</h3>
+            <p class="small">Двухфазный поиск с таблицами отсечений. Метрика HTM (полуоборот = один ход).</p>
+            <button id="btn-kociemba" disabled>Загружаю таблицы…</button>
+            <p class="mono" id="kociemba-out"></p>
+          </div>
+
+          <div class="lane">
+            <h3>Прямой перебор</h3>
+            <p class="small">То, что на сайте делали <code>ndarvin()</code> и <code>per()</code>. Теперь — в отдельном потоке, с отсечениями по выбору.</p>
+            <div class="row wrap">
+              <label>Метрика
+                <select id="sel-metric"><option value="QTM">QTM — 12 ходов (как у автора)</option><option value="HTM">HTM — 18 ходов</option></select>
+              </label>
+              <label><input type="checkbox" id="chk-prune" checked /> Отсечения</label>
+              <label><input type="checkbox" id="chk-unique" checked /> Считать уникальные</label>
+              <label>Глубина перемешки <input type="number" id="inp-depth" min="1" max="8" value="4" /></label>
+            </div>
+            <div class="row">
+              <button id="btn-brute-start">Перемешать и перебирать</button>
+              <button id="btn-brute-stop" class="quiet" disabled>Остановить</button>
+            </div>
+            <dl class="stats">
+              <div><dt>уровень</dt><dd id="st-depth">—</dd></div>
+              <div><dt>кубиков всего</dt><dd id="st-nodes">—</dd></div>
+              <div><dt>в секунду</dt><dd id="st-rate">—</dd></div>
+              <div><dt>уникальных</dt><dd id="st-unique">—</dd></div>
+              <div><dt>повторов</dt><dd id="st-repeats">—</dd></div>
+              <div><dt>уникальные / все</dt><dd id="st-ratio">—</dd></div>
+            </dl>
+            <p class="mono" id="brute-path"></p>
+            <p class="mono" id="brute-out"></p>
+          </div>
+        </div>
+
+        <h3>Уникальные и повторы — в реальном времени</h3>
+        <p>Тот же график, что автор строил по 4,4 миллиона кубиков в Excel (рис. 1.1 ниже), но рисуется по ходу перебора. Выключите отсечения — увидите, как доля уникальных падает; включите — почти все кубики станут уникальными.</p>
+        <div id="chart-live" class="chart-host"></div>
+        <div id="depth-bars" class="depth-bars" aria-label="Узлы по уровням"></div>
+      </section>
+
+      <section id="god" class="section essay">
+        <h2>Число Бога</h2>
+        <aside class="editorial">
+          <strong>Примечание к переизданию.</strong> Ниже — авторский текст без изменений. Одна поправка по существу: перебор на сайте идёт по <em>четвертьоборотам</em> (метрика QTM, 12 ходов), а «число Бога» 20 доказано для метрики <em>полуоборотов</em> (HTM, где U2 — один ход). В QTM число Бога равно 26. Все оценки «двадцатого уровня» в тексте относятся к другой метрике, чем та, в которой ведётся перебор.
+        </aside>
+        <div id="essay"></div>
+      </section>
+
+      <section id="data" class="section">
+        <h2>Данные</h2>
+        <p>Таблицы автора из архива сайта, переведённые из Excel в JSON. Графики строятся на лету.</p>
+        <h3>Доля уникальных кубиков при прямом переборе</h3>
+        <p class="small">4,38 миллиона кубиков, шаг 10 тысяч. Файл <a href="./data/brack.json" download>brack.json</a>.</p>
+        <div id="chart-brack" class="chart-host"></div>
+        <h3>Сколько раз повторяется каждый уникальный кубик</h3>
+        <p class="small">Первые 10 000 уникальных, логарифмическая шкала. Файл <a href="./data/cubi.json" download>cubi.json</a>.</p>
+        <div id="chart-cubi" class="chart-host"></div>
+        <h3>Длины серий уникальных и повторов</h3>
+        <p class="small">Первые 3 000 серий. Серии уникальных не длиннее десяти — как и заметил автор. Файл <a href="./data/serii.json" download>serii.json</a>.</p>
+        <div id="chart-serii" class="chart-host"></div>
+      </section>
+
+      <footer class="footer">
+        <p>Игра и исследование — Букреев (MIvOlgin), Санкт-Петербург, 1988—. Переиздание: ядро на TypeScript, рендер three.js, решатель Кочембы — пакет cubejs. Перебор и решатель работают в Web Worker.</p>
+      </footer>
+    </main>
+  </div>
+
+  <dialog id="dlg-custom">
+    <form method="dialog">
+      <h3>Свой кубик</h3>
+      <p class="small">54 буквы граней в порядке U R F D L B, по 9 на грань, построчно (как в формате Кочембы). Собранный кубик: <code>UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB</code>.</p>
+      <textarea id="custom-facelets" rows="3" spellcheck="false"></textarea>
+      <p class="hint" id="custom-error"></p>
+      <div class="row">
+        <button value="cancel" class="quiet">Отмена</button>
+        <button id="custom-ok" value="ok">Применить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
